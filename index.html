@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Заявка на пропуск</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1a56db;
+    }
+    header p {
+      color: #6b7280;
+      margin-top: 4px;
+      font-size: 0.9rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+      padding: 32px;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    /* Тип заявителя */
+    .type-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+    .type-toggle label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: border-color .15s, background .15s;
+    }
+    .type-toggle input { display: none; }
+    .type-toggle input:checked + span { /* handled via JS class */ }
+    .type-toggle label.active {
+      border-color: #1a56db;
+      background: #eff6ff;
+      color: #1a56db;
+    }
+
+    /* Поля формы */
+    .field { margin-bottom: 20px; }
+    .field label {
+      display: block;
+      font-size: 0.83rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    .field label .req { color: #e53e3e; margin-left: 2px; }
+    .field input[type="text"] {
+      width: 100%;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .field input[type="text"]:focus { border-color: #1a56db; }
+    .field input[type="text"].error { border-color: #e53e3e; }
+
+    /* Загрузка файлов */
+    .upload-box {
+      border: 2px dashed #d1d5db;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      position: relative;
+    }
+    .upload-box:hover { border-color: #1a56db; background: #f8faff; }
+    .upload-box.has-file { border-color: #10b981; background: #f0fdf4; }
+    .upload-box.error { border-color: #e53e3e; }
+    .upload-box input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .upload-icon { font-size: 2rem; margin-bottom: 6px; }
+    .upload-label { font-size: 0.85rem; color: #6b7280; }
+    .upload-label strong { color: #1a56db; }
+
+    .preview-img {
+      max-width: 100%;
+      max-height: 160px;
+      border-radius: 6px;
+      margin-top: 10px;
+      display: none;
+      object-fit: contain;
+    }
+
+    /* Секции */
+    .section-resident, .section-nonresident { display: none; }
+    .section-resident.show, .section-nonresident.show { display: block; }
+
+    /* Разделитель */
+    .divider {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 24px 0;
+    }
+
+    /* Кнопка */
+    .btn-submit {
+      width: 100%;
+      background: #1a56db;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-submit:hover { background: #1447c0; }
+    .btn-submit:disabled { background: #9ca3af; cursor: not-allowed; }
+
+    /* Сообщения */
+    .msg {
+      display: none;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 0.9rem;
+      margin-top: 16px;
+    }
+    .msg.error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; display: block; }
+    .msg.success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; display: block; }
+
+    /* Экран успеха */
+    #successScreen {
+      display: none;
+      text-align: center;
+      padding: 40px 0;
+    }
+    #successScreen .check { font-size: 3.5rem; }
+    #successScreen h2 { font-size: 1.3rem; margin: 12px 0 8px; color: #15803d; }
+    #successScreen p { color: #6b7280; font-size: 0.9rem; line-height: 1.5; }
+    #successScreen .app-id {
+      display: inline-block;
+      background: #f3f4f6;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      margin-top: 12px;
+      color: #374151;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Заявка на пропуск</h1>
+  <p>Заполните форму для получения пропуска</p>
+</header>
+
+<div class="card">
+  <form id="appForm">
+
+    <!-- Тип -->
+    <div class="type-toggle">
+      <label id="lblResident" class="active">
+        <input type="radio" name="type" value="resident" checked>
+        <span>Резидент РК</span>
+      </label>
+      <label id="lblNonResident">
+        <input type="radio" name="type" value="nonresident">
+        <span>Нерезидент РК</span>
+      </label>
+    </div>
+
+    <!-- Общее: ФИО -->
+    <div class="field">
+      <label>ФИО <span class="req">*</span></label>
+      <input type="text" id="fio" placeholder="Иванов Иван Иванович" autocomplete="name">
+    </div>
+
+    <!-- Резидент -->
+    <div class="section-resident show" id="sectionResident">
+      <div class="field">
+        <label>ИИН <span class="req">*</span></label>
+        <input type="text" id="iin" placeholder="000000000000" maxlength="12">
+      </div>
+    </div>
+
+    <!-- Нерезидент -->
+    <div class="section-nonresident" id="sectionNonResident">
+      <div class="field">
+        <label>Номер паспорта <span class="req">*</span></label>
+        <input type="text" id="passport" placeholder="AB1234567">
+      </div>
+      <div class="field">
+        <label>Место работы <span class="req">*</span></label>
+        <input type="text" id="workplace" placeholder="Название организации">
+      </div>
+      <div class="field">
+        <label>Должность <span class="req">*</span></label>
+        <input type="text" id="position" placeholder="Ваша должность">
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Фото лица -->
+    <div class="field">
+      <label>Фото лица <span class="req">*</span></label>
+      <div class="upload-box" id="photoBox">
+        <input type="file" id="photoInput" accept="image/*">
+        <div class="upload-icon">📷</div>
+        <div class="upload-label">Нажмите или перетащите файл<br><strong>JPG, PNG</strong> до 5 МБ</div>
+        <img class="preview-img" id="photoPreview" alt="Фото">
+      </div>
+    </div>
+
+    <!-- Скан паспорта (только нерезидент) -->
+    <div class="field section-nonresident" id="sectionScan">
+      <label>Скан паспорта <span class="req">*</span></label>
+      <div class="upload-box" id="scanBox">
+        <input type="file" id="scanInput" accept="image/*,.pdf">
+        <div class="upload-icon">📄</div>
+        <div class="upload-label">Нажмите или перетащите файл<br><strong>JPG, PNG, PDF</strong> до 10 МБ</div>
+        <img class="preview-img" id="scanPreview" alt="Скан">
+      </div>
+    </div>
+
+    <div class="msg" id="formMsg"></div>
+
+    <button type="submit" class="btn-submit" id="submitBtn">Отправить заявку</button>
+
+  </form>
+
+  <!-- Экран успеха -->
+  <div id="successScreen">
+    <div class="check">✅</div>
+    <h2>Заявка отправлена!</h2>
+    <p>Ваша заявка принята и будет рассмотрена администратором.<br>Запишите номер заявки:</p>
+    <div class="app-id" id="appIdDisplay"></div>
+  </div>
+</div>
+
+<script>
+  // ── Конфигурация ────────────────────────────
+  const API_URL = 'https://script.google.com/macros/s/AKfycbyMCgQLQt4kFs4eqKr0kLErNQ5IIS4JUqZfpylEsIpFkQhhu09thQrqTp2xmFbsp7-5Ug/exec';
+
+  // ── Переключение типа ────────────────────────
+  const radios = document.querySelectorAll('input[name="type"]');
+  radios.forEach(r => r.addEventListener('change', updateType));
+
+  function updateType() {
+    const isResident = document.querySelector('input[name="type"]:checked').value === 'resident';
+    document.getElementById('lblResident').classList.toggle('active', isResident);
+    document.getElementById('lblNonResident').classList.toggle('active', !isResident);
+    document.getElementById('sectionResident').classList.toggle('show', isResident);
+    document.querySelectorAll('.section-nonresident').forEach(el => {
+      el.classList.toggle('show', !isResident);
+    });
+  }
+
+  // ── Загрузка файлов ──────────────────────────
+  function setupUpload(inputId, boxId, previewId) {
+    const input   = document.getElementById(inputId);
+    const box     = document.getElementById(boxId);
+    const preview = document.getElementById(previewId);
+
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if (!file) return;
+      box.classList.add('has-file');
+      box.classList.remove('error');
+      const label = box.querySelector('.upload-label');
+      label.textContent = file.name;
+
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          preview.src = e.target.result;
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      } else {
+        preview.style.display = 'none';
+      }
+    });
+  }
+
+  setupUpload('photoInput', 'photoBox', 'photoPreview');
+  setupUpload('scanInput',  'scanBox',  'scanPreview');
+
+  // ── Отправка формы ───────────────────────────
+  document.getElementById('appForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validate()) return;
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Отправка...';
+    showMsg('', '');
+
+    try {
+      const payload = await buildPayload();
+      const res     = await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+
+      if (result.success) {
+        document.getElementById('appForm').style.display    = 'none';
+        document.getElementById('successScreen').style.display = 'block';
+        document.getElementById('appIdDisplay').textContent = result.id.substring(0, 8).toUpperCase();
+      } else {
+        showMsg('error', result.error || 'Ошибка при отправке. Попробуйте ещё раз.');
+        btn.disabled = false;
+        btn.textContent = 'Отправить заявку';
+      }
+    } catch (err) {
+      showMsg('error', 'Не удалось связаться с сервером. Проверьте соединение.');
+      btn.disabled = false;
+      btn.textContent = 'Отправить заявку';
+    }
+  });
+
+  async function buildPayload() {
+    const type       = document.querySelector('input[name="type"]:checked').value;
+    const photoFile  = document.getElementById('photoInput').files[0];
+    const scanFile   = document.getElementById('scanInput').files[0];
+
+    const payload = {
+      action: 'submit',
+      type,
+      fio: document.getElementById('fio').value.trim(),
+    };
+
+    if (type === 'resident') {
+      payload.iin = document.getElementById('iin').value.trim();
+    } else {
+      payload.passport  = document.getElementById('passport').value.trim();
+      payload.workplace = document.getElementById('workplace').value.trim();
+      payload.position  = document.getElementById('position').value.trim();
+    }
+
+    payload.photo = await toBase64(photoFile);
+    if (type === 'nonresident' && scanFile) {
+      payload.passportScan = await toBase64(scanFile);
+    }
+
+    return payload;
+  }
+
+  function toBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = e => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ── Валидация ────────────────────────────────
+  function validate() {
+    let ok = true;
+    const type = document.querySelector('input[name="type"]:checked').value;
+
+    ok = requireText('fio') && ok;
+
+    if (type === 'resident') {
+      ok = requireText('iin') && ok;
+      const iin = document.getElementById('iin').value.trim();
+      if (iin && !/^\d{12}$/.test(iin)) {
+        markError('iin');
+        showMsg('error', 'ИИН должен содержать ровно 12 цифр.');
+        ok = false;
+      }
+    } else {
+      ok = requireText('passport')  && ok;
+      ok = requireText('workplace') && ok;
+      ok = requireText('position')  && ok;
+    }
+
+    if (!document.getElementById('photoInput').files[0]) {
+      document.getElementById('photoBox').classList.add('error');
+      showMsg('error', 'Загрузите фото лица.');
+      ok = false;
+    }
+
+    if (type === 'nonresident' && !document.getElementById('scanInput').files[0]) {
+      document.getElementById('scanBox').classList.add('error');
+      showMsg('error', 'Загрузите скан паспорта.');
+      ok = false;
+    }
+
+    return ok;
+  }
+
+  function requireText(id) {
+    const el = document.getElementById(id);
+    if (!el) return true;
+    if (!el.value.trim()) { markError(id); return false; }
+    el.classList.remove('error');
+    return true;
+  }
+
+  function markError(id) {
+    document.getElementById(id)?.classList.add('error');
+  }
+
+  function showMsg(type, text) {
+    const el = document.getElementById('formMsg');
+    el.className = 'msg';
+    el.textContent = text;
+    if (type) el.classList.add(type);
+  }
+</script>
+</body>
+</html>

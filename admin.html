@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Панель администратора — Пропуска</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+    }
+
+    /* ── Логин ── */
+    #loginScreen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .login-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.1);
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+    .login-card h1 { font-size: 1.3rem; margin-bottom: 6px; }
+    .login-card p  { color: #6b7280; font-size: 0.88rem; margin-bottom: 24px; }
+    .login-card input {
+      width: 100%;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 1rem;
+      outline: none;
+      margin-bottom: 12px;
+      transition: border-color .15s;
+    }
+    .login-card input:focus { border-color: #1a56db; }
+    .login-card .btn-login {
+      width: 100%;
+      background: #1a56db;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .login-card .btn-login:hover { background: #1447c0; }
+    .login-err { color: #b91c1c; font-size: 0.85rem; margin-top: 10px; }
+
+    /* ── Основной интерфейс ── */
+    #mainScreen { display: none; }
+
+    nav {
+      background: #1a56db;
+      color: #fff;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+    nav .brand { font-weight: 700; font-size: 1rem; }
+    nav .btn-logout {
+      background: rgba(255,255,255,.15);
+      border: none;
+      color: #fff;
+      border-radius: 6px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    nav .btn-logout:hover { background: rgba(255,255,255,.25); }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+
+    /* Статистика */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    .stat-card .num { font-size: 1.8rem; font-weight: 700; color: #1a56db; }
+    .stat-card .lbl { font-size: 0.8rem; color: #6b7280; margin-top: 2px; }
+
+    /* Фильтры */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .toolbar select, .toolbar input {
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .toolbar select:focus, .toolbar input:focus { border-color: #1a56db; }
+    .toolbar .btn-refresh {
+      background: #fff;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .toolbar .btn-refresh:hover { background: #f9fafb; }
+
+    /* Таблица */
+    .table-wrap {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      overflow: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    thead th {
+      background: #f8fafc;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      color: #6b7280;
+      border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid #f3f4f6;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    tbody tr:hover { background: #f0f6ff; }
+    tbody tr:last-child { border-bottom: none; }
+    td { padding: 12px 16px; }
+
+    .badge {
+      display: inline-block;
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .badge-new      { background: #fef9c3; color: #854d0e; }
+    .badge-approved { background: #dcfce7; color: #15803d; }
+    .badge-rejected { background: #fee2e2; color: #b91c1c; }
+    .badge-resident { background: #eff6ff; color: #1a56db; }
+    .badge-nonresident { background: #faf5ff; color: #7c3aed; }
+
+    .empty { text-align: center; padding: 48px; color: #9ca3af; }
+
+    /* ── Модальное окно ── */
+    .overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 640px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .modal-header h2 { font-size: 1.1rem; }
+    .btn-close {
+      background: none; border: none; font-size: 1.4rem;
+      cursor: pointer; color: #9ca3af; line-height: 1;
+    }
+    .modal-body { padding: 24px; }
+
+    .detail-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+      align-items: flex-start;
+    }
+    .detail-row .dl { width: 160px; flex-shrink: 0; font-size: 0.82rem; color: #6b7280; font-weight: 600; padding-top: 2px; }
+    .detail-row .dv { font-size: 0.92rem; word-break: break-word; }
+
+    .file-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f3f4f6;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      color: #1a56db;
+      text-decoration: none;
+    }
+    .file-link:hover { background: #eff6ff; }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .status-actions { display: flex; gap: 8px; }
+    .btn-status {
+      border: 1.5px solid;
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: #fff;
+      transition: background .1s;
+    }
+    .btn-approve { border-color: #15803d; color: #15803d; }
+    .btn-approve:hover { background: #dcfce7; }
+    .btn-reject  { border-color: #b91c1c; color: #b91c1c; }
+    .btn-reject:hover  { background: #fee2e2; }
+    .btn-print {
+      background: #1a56db; color: #fff; border: none;
+      border-radius: 6px; padding: 8px 18px;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-print:hover { background: #1447c0; }
+
+  </style>
+</head>
+<body>
+
+<!-- Экран логина -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>Администратор</h1>
+    <p>Система управления заявками на пропуск</p>
+    <input type="password" id="loginPass" placeholder="Пароль" autocomplete="current-password">
+    <button class="btn-login" id="loginBtn">Войти</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- Основной интерфейс -->
+<div id="mainScreen">
+  <nav>
+    <span class="brand">СКУД — Пропуска</span>
+    <button class="btn-logout" id="logoutBtn">Выйти</button>
+  </nav>
+
+  <div class="container">
+    <!-- Статистика -->
+    <div class="stats">
+      <div class="stat-card"><div class="num" id="statTotal">0</div><div class="lbl">Всего заявок</div></div>
+      <div class="stat-card"><div class="num" id="statNew">0</div><div class="lbl">Новые</div></div>
+      <div class="stat-card"><div class="num" id="statApproved">0</div><div class="lbl">Одобрены</div></div>
+      <div class="stat-card"><div class="num" id="statRejected">0</div><div class="lbl">Отклонены</div></div>
+    </div>
+
+    <!-- Фильтры -->
+    <div class="toolbar">
+      <select id="filterStatus">
+        <option value="">Все статусы</option>
+        <option value="Новая">Новые</option>
+        <option value="Одобрена">Одобренные</option>
+        <option value="Отклонена">Отклонённые</option>
+      </select>
+      <select id="filterType">
+        <option value="">Все типы</option>
+        <option value="Резидент РК">Резидент РК</option>
+        <option value="Нерезидент РК">Нерезидент РК</option>
+      </select>
+      <input type="text" id="filterSearch" placeholder="Поиск по ФИО...">
+      <button class="btn-refresh" id="refreshBtn">↻ Обновить</button>
+    </div>
+
+    <!-- Таблица -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Дата</th>
+            <th>ФИО</th>
+            <th>Тип</th>
+            <th>Статус</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="5" class="empty">Загрузка...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно заявки -->
+<div class="overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Заявка на пропуск</h2>
+      <button class="btn-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <div class="status-actions">
+        <button class="btn-status btn-approve" id="btnApprove">✓ Одобрить</button>
+        <button class="btn-status btn-reject"  id="btnReject">✕ Отклонить</button>
+      </div>
+      <button class="btn-print" id="btnPrint">⬇ Скачать PDF</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script>
+  // ── Конфигурация ────────────────────────────
+  const API_URL = 'https://script.google.com/macros/s/AKfycbyMCgQLQt4kFs4eqKr0kLErNQ5IIS4JUqZfpylEsIpFkQhhu09thQrqTp2xmFbsp7-5Ug/exec';
+
+  let token = localStorage.getItem('adminToken');
+  let allApps = [];
+  let currentApp = null;
+
+  // ── Логин ────────────────────────────────────
+  if (token) showMain();
+
+  document.getElementById('loginBtn').addEventListener('click', doLogin);
+  document.getElementById('loginPass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogin() {
+    const pass = document.getElementById('loginPass').value;
+    const btn  = document.getElementById('loginBtn');
+    btn.textContent = '...';
+    btn.disabled = true;
+
+    try {
+      const res    = await apiFetch({ action: 'login', password: pass });
+      if (res.success) {
+        token = res.token;
+        localStorage.setItem('adminToken', token);
+        showMain();
+      } else {
+        document.getElementById('loginErr').textContent = res.error || 'Неверный пароль';
+      }
+    } catch {
+      document.getElementById('loginErr').textContent = 'Ошибка соединения';
+    }
+
+    btn.textContent = 'Войти';
+    btn.disabled = false;
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    localStorage.removeItem('adminToken');
+    token = null;
+    document.getElementById('mainScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+  });
+
+  function showMain() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainScreen').style.display  = 'block';
+    loadApplications();
+  }
+
+  // ── Загрузка заявок ──────────────────────────
+  async function loadApplications() {
+    try {
+      const res = await apiFetch({ action: 'getAll', token });
+      if (!res.success) { alert('Ошибка: ' + res.error); return; }
+      allApps = res.data.reverse(); // Новые сверху
+      updateStats();
+      renderTable();
+    } catch {
+      document.getElementById('tableBody').innerHTML =
+        '<tr><td colspan="5" class="empty">Ошибка загрузки данных</td></tr>';
+    }
+  }
+
+  document.getElementById('refreshBtn').addEventListener('click', loadApplications);
+
+  // ── Статистика ───────────────────────────────
+  function updateStats() {
+    document.getElementById('statTotal').textContent    = allApps.length;
+    document.getElementById('statNew').textContent      = allApps.filter(a => a.status === 'Новая').length;
+    document.getElementById('statApproved').textContent = allApps.filter(a => a.status === 'Одобрена').length;
+    document.getElementById('statRejected').textContent = allApps.filter(a => a.status === 'Отклонена').length;
+  }
+
+  // ── Таблица ──────────────────────────────────
+  document.getElementById('filterStatus').addEventListener('change', renderTable);
+  document.getElementById('filterType').addEventListener('change', renderTable);
+  document.getElementById('filterSearch').addEventListener('input', renderTable);
+
+  function renderTable() {
+    const status = document.getElementById('filterStatus').value;
+    const type   = document.getElementById('filterType').value;
+    const search = document.getElementById('filterSearch').value.toLowerCase();
+
+    const filtered = allApps.filter(a =>
+      (!status || a.status === status) &&
+      (!type   || a.type   === type)   &&
+      (!search || a.fio.toLowerCase().includes(search))
+    );
+
+    const tbody = document.getElementById('tableBody');
+    if (!filtered.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">Заявок не найдено</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filtered.map((a, i) => `
+      <tr data-id="${a.id}">
+        <td>${i + 1}</td>
+        <td>${a.date}</td>
+        <td>${esc(a.fio)}</td>
+        <td><span class="badge ${a.type === 'Резидент РК' ? 'badge-resident' : 'badge-nonresident'}">${a.type}</span></td>
+        <td><span class="badge ${statusBadge(a.status)}">${a.status}</span></td>
+      </tr>
+    `).join('');
+
+    tbody.querySelectorAll('tr').forEach(tr => {
+      tr.addEventListener('click', () => {
+        const app = allApps.find(a => a.id === tr.dataset.id);
+        if (app) openModal(app);
+      });
+    });
+  }
+
+  function statusBadge(s) {
+    return s === 'Одобрена' ? 'badge-approved' : s === 'Отклонена' ? 'badge-rejected' : 'badge-new';
+  }
+
+  // ── Модальное окно ───────────────────────────
+  function openModal(app) {
+    currentApp = app;
+    const body = document.getElementById('modalBody');
+
+    const rows = [
+      ['Дата подачи',  app.date],
+      ['Тип',         app.type],
+      ['ФИО',         app.fio],
+    ];
+
+    if (app.type === 'Резидент РК') {
+      rows.push(['ИИН', app.iin]);
+    } else {
+      rows.push(['Номер паспорта', app.passport]);
+      rows.push(['Место работы',   app.workplace]);
+      rows.push(['Должность',      app.position]);
+    }
+
+    rows.push(['Статус', `<span class="badge ${statusBadge(app.status)}">${app.status}</span>`]);
+
+    const filesHtml = `
+      <div class="detail-row">
+        <div class="dl">Фото лица</div>
+        <div class="dv">${app.photo ? `<a class="file-link" href="${app.photo}" target="_blank">📷 Открыть фото</a>` : '—'}</div>
+      </div>
+      ${app.type === 'Нерезидент РК' ? `
+      <div class="detail-row">
+        <div class="dl">Скан паспорта</div>
+        <div class="dv">${app.passportScan ? `<a class="file-link" href="${app.passportScan}" target="_blank">📄 Открыть скан</a>` : '—'}</div>
+      </div>` : ''}
+    `;
+
+    body.innerHTML =
+      rows.map(([l, v]) => `
+        <div class="detail-row">
+          <div class="dl">${l}</div>
+          <div class="dv">${v ?? '—'}</div>
+        </div>
+      `).join('') + filesHtml;
+
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  document.getElementById('modalOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  });
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    currentApp = null;
+  }
+
+  // ── Смена статуса ────────────────────────────
+  document.getElementById('btnApprove').addEventListener('click', () => changeStatus('Одобрена'));
+  document.getElementById('btnReject').addEventListener('click',  () => changeStatus('Отклонена'));
+
+  async function changeStatus(status) {
+    if (!currentApp) return;
+    try {
+      const res = await apiFetch({ action: 'updateStatus', token, id: currentApp.id, status });
+      if (res.success) {
+        currentApp.status = status;
+        const app = allApps.find(a => a.id === currentApp.id);
+        if (app) app.status = status;
+        updateStats();
+        renderTable();
+        openModal(currentApp); // Обновить модал
+      }
+    } catch {
+      alert('Ошибка при обновлении статуса');
+    }
+  }
+
+  // ── Скачать PDF ──────────────────────────────
+  document.getElementById('btnPrint').addEventListener('click', printForm);
+
+  function driveDirectUrl(url) {
+    if (!url) return '';
+    const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+    return url;
+  }
+
+  async function printForm() {
+    if (!currentApp) return;
+    const btn = document.getElementById('btnPrint');
+    btn.disabled = true;
+    btn.textContent = 'Генерация...';
+
+    try {
+      const a = currentApp;
+      const isResident = a.type === 'Резидент РК';
+
+      const tableBody = isResident
+        ? [
+            [{ text: 'ФИО',  bold: true, fillColor: '#f0f0f0' }, a.fio || '—'],
+            [{ text: 'ИИН',  bold: true, fillColor: '#f0f0f0' }, a.iin || '—'],
+            [{ text: 'Тип',  bold: true, fillColor: '#f0f0f0' }, 'Резидент Республики Казахстан'],
+          ]
+        : [
+            [{ text: 'ФИО',             bold: true, fillColor: '#f0f0f0' }, a.fio || '—'],
+            [{ text: 'Номер паспорта',  bold: true, fillColor: '#f0f0f0' }, a.passport || '—'],
+            [{ text: 'Место работы',    bold: true, fillColor: '#f0f0f0' }, a.workplace || '—'],
+            [{ text: 'Должность',       bold: true, fillColor: '#f0f0f0' }, a.position || '—'],
+            [{ text: 'Тип',             bold: true, fillColor: '#f0f0f0' }, 'Нерезидент Республики Казахстан'],
+          ];
+
+      tableBody.push([{ text: 'Статус',        bold: true, fillColor: '#f0f0f0' }, a.status]);
+      tableBody.push([{ text: 'Номер заявки',  bold: true, fillColor: '#f0f0f0' }, a.id.substring(0, 8).toUpperCase()]);
+
+      const content = [
+        { text: 'АНКЕТА ДЛЯ ОФОРМЛЕНИЯ ПРОПУСКА', style: 'header' },
+        { text: `Дата подачи заявки: ${a.date}`, style: 'sub' },
+        {
+          table: { widths: ['40%', '*'], body: tableBody },
+          margin: [0, 12, 0, 20],
+        },
+      ];
+
+      // Фото
+      const photoUrl = driveDirectUrl(a.photo);
+      if (photoUrl) {
+        try {
+          const b64 = await fetchImageAsBase64(photoUrl);
+          content.push({ text: 'Фото заявителя', alignment: 'center', margin: [0, 0, 0, 6] });
+          content.push({ image: b64, width: 110, alignment: 'center', margin: [0, 0, 0, 20] });
+        } catch { /* фото недоступно */ }
+      }
+
+      // Подписи
+      content.push({
+        columns: [
+          { text: '____________________\nПодпись заявителя', alignment: 'center', fontSize: 9 },
+          { text: '____________________\nОтветственный сотрудник', alignment: 'center', fontSize: 9 },
+        ],
+        margin: [0, 24, 0, 0],
+      });
+
+      pdfMake.createPdf({
+        content,
+        styles: {
+          header: { fontSize: 14, bold: true, alignment: 'center', margin: [0, 0, 0, 6] },
+          sub:    { fontSize: 10, color: '#555', alignment: 'center', margin: [0, 0, 0, 4] },
+        },
+        defaultStyle: { font: 'Roboto', fontSize: 10 },
+      }).download(`anketa_${a.id.substring(0, 8).toUpperCase()}.pdf`);
+
+    } catch (err) {
+      alert('Ошибка генерации PDF: ' + err.message);
+    }
+
+    btn.disabled = false;
+    btn.textContent = '⬇ Скачать PDF';
+  }
+
+  async function fetchImageAsBase64(url) {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = e => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // ── API ──────────────────────────────────────
+  async function apiFetch(body) {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  function esc(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
