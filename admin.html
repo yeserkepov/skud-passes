@@ -523,6 +523,11 @@
 
   async function changeStatus(status) {
     if (!currentApp) return;
+    const btnApprove = document.getElementById('btnApprove');
+    const btnReject  = document.getElementById('btnReject');
+    btnApprove.disabled = true;
+    btnReject.disabled  = true;
+
     try {
       const res = await apiFetch({ action: 'updateStatus', token, id: currentApp.id, status });
       if (res.success) {
@@ -531,11 +536,16 @@
         if (app) app.status = status;
         updateStats();
         renderTable();
-        openModal(currentApp); // Обновить модал
+        openModal(currentApp);
+      } else {
+        alert('Ошибка обновления: ' + (res.error || JSON.stringify(res)));
       }
-    } catch {
-      alert('Ошибка при обновлении статуса');
+    } catch (e) {
+      alert('Ошибка соединения: ' + e.message);
     }
+
+    btnApprove.disabled = false;
+    btnReject.disabled  = false;
   }
 
   // ── Скачать PDF ──────────────────────────────
@@ -635,6 +645,7 @@
   async function apiFetch(body) {
     const res = await fetch(API_URL, {
       method: 'POST',
+      redirect: 'follow',
       body: JSON.stringify(body),
     });
     return res.json();
